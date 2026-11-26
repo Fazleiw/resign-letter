@@ -26,11 +26,18 @@ if (QUOTES.test(LETTER)) fail("text must not begin or end with a quotation mark"
 const dir = process.env.MAKEFUN_OUTPUT_DIR || "/output";
 const path = join(dir, "entry.txt");
 mkdirSync(dir, { recursive: true });
-writeFileSync(path, LETTER + "\n", "utf8");
+const expected = LETTER + "\n";
+writeFileSync(path, expected, "utf8");
 
-// Read the raw bytes back and decode strictly: a lone surrogate or other
-// encoding slip would otherwise be silently replaced with U+FFFD on write.
-const readback = new TextDecoder("utf-8", { fatal: true }).decode(readFileSync(path));
-if (readback !== LETTER + "\n") fail(`readback of ${path} does not match LETTER`);
+// Check the byte count explicitly: TextDecoder silently drops a leading BOM,
+// so a file with extra bytes could still decode to an equal string.
+const bytes = readFileSync(path);
+const expectedBytes = Buffer.byteLength(expected, "utf8");
+if (bytes.length !== expectedBytes) fail(`${path} is ${bytes.length} bytes, expected ${expectedBytes}`);
 
-console.log(`${chars} chars -> ${path}`);
+// Decode strictly: a lone surrogate or other encoding slip would otherwise
+// be silently replaced with U+FFFD on write.
+const readback = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+if (readback !== expected) fail(`readback of ${path} does not match LETTER`);
+
+console.log(`${chars} chars, ${bytes.length} bytes -> ${path}`);
